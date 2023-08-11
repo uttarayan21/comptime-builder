@@ -1,0 +1,24 @@
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/uttarayan21/comptime-builder"
+documentation = "https://docs.rs/comptime-builder"
+
+[workspace]
+members = [
+    ".",
+    "comptime-builder-macros"
+]
+
+[workspace.dependencies]
+comptime-builder-macros = { version = "0.1.0", path = "comptime-builder-macros" }
+
+[package]
+name = "comptime-builder"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+documentation.workspace = true
+
+[dependencies]
+comptime-builder-macros.workspace = true
