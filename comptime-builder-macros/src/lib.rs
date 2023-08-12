@@ -35,53 +35,7 @@ mod derive_builder {
         let builder_struct_name = Ident::new(&format!("{}Builder", struct_name), Span::call_site());
 
         // Use Generic type T{0..} to represent the fields
-        let mut state = 1u32;
-        let generic_fields = fields.into_iter().scan(&mut state, |state, mut field| {
-            let gtype = format!("T{}", state);
-            **state += 1;
-            field.ty = syn::Type::Path(TypePath {
-                qself: None,
-                path: syn::Path {
-                    leading_colon: None,
-                    segments: Punctuated::from_iter(vec![PathSegment {
-                        ident: syn::Ident::new(&gtype, Span::call_site()),
-                        arguments: PathArguments::None,
-                    }]),
-                },
-            });
-            Some(field)
-        });
-        let generic_fields: Punctuated<Field, Comma> = generic_fields.collect();
-        let builder_generics = syn::Generics {
-            lt_token: Token![<](Span::call_site()).into(),
-            params: (1..state)
-                .map(|f| {
-                    GenericParam::Type(TypeParam {
-                        attrs: vec![],
-                        ident: syn::Ident::new(&format!("T{}", f), Span::call_site()),
-                        colon_token: None,
-                        bounds: Punctuated::new(),
-                        eq_token: None,
-                        default: None,
-                    })
-                })
-                .collect(),
-            gt_token: Token![>](Span::call_site()).into(),
-            where_clause: None,
-        };
-
-        let builder_struct = syn::ItemStruct {
-            attrs: vec![],
-            vis: Visibility::Inherited,
-            struct_token: Token![struct](Span::call_site()),
-            ident: builder_struct_name.clone(),
-            fields: Fields::Named(FieldsNamed {
-                brace_token: token::Brace::default(),
-                named: generic_fields,
-            }),
-            generics: builder_generics,
-            semi_token: None,
-        };
+        let gf = generic_fields("T", fields)?;
 
         let empty_builder_type: syn::Type = syn::Type::Path(TypePath {
             qself: None,
@@ -95,7 +49,7 @@ mod derive_builder {
                         args: core::iter::repeat::<GenericArgument>(parse_quote!(
                             #crate_name::Empty
                         ))
-                        .take(state as usize - 1)
+                        .take(gf.len() as usize - 1)
                         .collect(),
                         gt_token: Token![>](Span::call_site()),
                     }),
@@ -141,9 +95,70 @@ mod derive_builder {
             items: vec![ImplItem::Fn(empty_builder_fn)],
         };
 
+        let bs = builder_struct()?;
         Ok(quote! {
             #impl_empty_builder_fn
-            #builder_struct
+            #bs
         })
+    }
+
+    pub fn builder_struct() -> Result<syn::ItemStruct> {
+        let builder_struct = syn::ItemStruct {
+            attrs: vec![],
+            vis: Visibility::Inherited,
+            struct_token: Token![struct](Span::call_site()),
+            ident: builder_struct_name.clone(),
+            fields: Fields::Named(FieldsNamed {
+                brace_token: token::Brace::default(),
+                named: gf,
+            }),
+            generics: builder_generics,
+            semi_token: None,
+        };
+        Ok(builder_struct)
+    }
+
+    pub fn builder_generics(ident: impl core::fmt::Display, len: usize) -> Result<syn::Generics> {
+        Ok(syn::Generics {
+            lt_token: Token![<](Span::call_site()).into(),
+            params: (1..len)
+                .map(|f| {
+                    GenericParam::Type(TypeParam {
+                        attrs: vec![],
+                        ident: syn::Ident::new(&format!("{}{}", ident, f), Span::call_site()),
+                        colon_token: None,
+                        bounds: Punctuated::new(),
+                        eq_token: None,
+                        default: None,
+                    })
+                })
+                .collect(),
+            gt_token: Token![>](Span::call_site()).into(),
+            where_clause: None,
+        })
+    }
+
+    pub fn generic_fields(
+        ident: impl core::fmt::Display,
+        input: Punctuated<Field, Comma>,
+    ) -> Result<Punctuated<Field, Comma>> {
+        Ok(input
+            .into_iter()
+            .scan(1, |state, mut field| {
+                let gtype = format!("{}{}", ident, state);
+                *state += 1;
+                field.ty = syn::Type::Path(TypePath {
+                    qself: None,
+                    path: syn::Path {
+                        leading_colon: None,
+                        segments: Punctuated::from_iter(vec![PathSegment {
+                            ident: syn::Ident::new(&gtype, Span::call_site()),
+                            arguments: PathArguments::None,
+                        }]),
+                    },
+                });
+                Some(field)
+            })
+            .collect())
     }
 }
