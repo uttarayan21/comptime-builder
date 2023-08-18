@@ -8,5 +8,5 @@ pub struct MyStruct<T1, T2> {
 }
 
 pub fn main() {
-    
+    // echo hello
 }

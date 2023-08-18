@@ -4,9 +4,9 @@ use syn::*;
 pub fn builder_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    dbg!(derive_builder::derive(input)
+    derive_builder::derive(input)
         .unwrap_or_else(|err| err.into_compile_error())
-        .into())
+        .into()
 }
 
 mod derive_builder {
@@ -15,6 +15,39 @@ mod derive_builder {
     use syn::punctuated::Punctuated;
     use syn::token::Comma;
     use syn::*;
+
+    pub struct Builder {}
+
+    impl Builder {
+        pub fn expr(&self) -> syn::ExprStruct {
+            todo!()
+        }
+        pub fn ty(&self) -> syn::Type {
+            todo!()
+        }
+
+        pub fn ty_empty(&self) -> syn::Type {
+            syn::Type::Path(TypePath {
+                qself: None,
+                path: syn::Path {
+                    leading_colon: None,
+                    segments: Punctuated::from_iter(vec![PathSegment {
+                        ident: builder_struct_name.clone(),
+                        arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                            colon2_token: None,
+                            lt_token: Token![<](Span::call_site()),
+                            args: core::iter::repeat::<GenericArgument>(parse_quote!(
+                                #crate_name::Empty
+                            ))
+                            .take(gf.len() as usize - 1)
+                            .collect(),
+                            gt_token: Token![>](Span::call_site()),
+                        }),
+                    }]),
+                },
+            })
+        }
+    }
 
     pub fn derive(input: DeriveInput) -> Result<TokenStream> {
         let crate_name: syn::Path = parse_quote!(::comptime_builder);
@@ -36,26 +69,6 @@ mod derive_builder {
 
         // Use Generic type T{0..} to represent the fields
         let gf = generic_fields("T", fields)?;
-
-        let empty_builder_type: syn::Type = syn::Type::Path(TypePath {
-            qself: None,
-            path: syn::Path {
-                leading_colon: None,
-                segments: Punctuated::from_iter(vec![PathSegment {
-                    ident: builder_struct_name.clone(),
-                    arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                        colon2_token: None,
-                        lt_token: Token![<](Span::call_site()),
-                        args: core::iter::repeat::<GenericArgument>(parse_quote!(
-                            #crate_name::Empty
-                        ))
-                        .take(gf.len() as usize - 1)
-                        .collect(),
-                        gt_token: Token![>](Span::call_site()),
-                    }),
-                }]),
-            },
-        });
 
         let empty_builder = syn::ExprStruct {
             attrs: vec![],
